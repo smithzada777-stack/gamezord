@@ -116,7 +116,7 @@ function cell(x,y,radius,color,name,isP){
     color:color||rc(),name:name||rn(),isP,alive:true,vx:0,vy:0,
     merge:true,mt:0,burst:0};
 }
-function spd(e){return 11*Math.pow(16/e.radius,0.36)}
+function spd(e){return 8*Math.pow(18/e.radius,0.30)}
 function totalMass(){let s=0;for(const c of pc)if(c.alive)s+=c.mass;return s}
 
 // Food
@@ -127,7 +127,7 @@ function initFood(){foods=[];for(let i=0;i<FOOD_N;i++)foods.push(mf())}
 function ms(){const r=rand(10,14);return{x:rand(r,WW-r),y:rand(r,WH-r),radius:r,color:'#ffd700'}}
 function initStars(){stars=[];for(let i=0;i<15;i++)stars.push(ms())}
 
-// Eject — only from the biggest cell, loss matches ejected mass
+// Eject — only from the biggest cell
 function ej(c){
   if(c.radius<10)return;
   const a=Math.atan2(mx.wy-c.y,mx.wx-c.x);
@@ -137,11 +137,10 @@ function ej(c){
     const ang=a+rand(-0.5,0.5),r=rand(3,6),sp=rand(12,22);
     totalLoss+=r2m(r);
     em.push({x:c.x+Math.cos(a)*c.radius,y:c.y+Math.sin(a)*c.radius,
-      radius:r,color:c.color,
+      radius:r,color:c.color,from:'player',
       vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:600,alive:true});
   }
-  const loss=totalLoss*0.85;
-  c.radius=m2r(Math.max(5,c.mass-loss));c.mass=r2m(c.radius);
+  c.radius=m2r(Math.max(6,c.mass-totalLoss));c.mass=r2m(c.radius);
 }
 
 // Split — shoots forward like a weapon with burst (zero mouse influence during flight)
@@ -232,7 +231,7 @@ function startGame(dk){
   document.getElementById('gameOver').style.display='none';
   document.getElementById('difficultyLabel').textContent=D[dk].lb;
   document.getElementById('difficultyLabel').style.display='block';
-  const sc=cell(WW/2+rand(-30,30),WH/2+rand(-30,30),6,'#3498db','Você',true);
+  const sc=cell(WW/2+rand(-30,30),WH/2+rand(-30,30),20,'#3498db','Você',true);
   pc.push(sc);cam.x=sc.x;cam.y=sc.y;cam.z=1;cam.tz=1;
   initFood();initStars();initBots(dk);running=true;
   if(fid)cancelAnimationFrame(fid);
@@ -308,11 +307,12 @@ function update(){
     const ms=spd(c);
     if(c.burst>0){
       c.burst--;
+      c.vx*=0.97;c.vy*=0.97;
       // Zero mouse influence during burst — cell flies purely on its momentum
     }else{
       if(d>3){c.vx+=(dx/d)*ms*0.10;c.vy+=(dy/d)*ms*0.10;}
+      c.vx*=0.90;c.vy*=0.90;
     }
-    c.vx*=0.90;c.vy*=0.90;
     const s=Math.hypot(c.vx,c.vy);
     if(s>ms){c.vx=(c.vx/s)*ms;c.vy=(c.vy/s)*ms;}
     c.x+=c.vx;c.y+=c.vy;
@@ -365,7 +365,8 @@ function update(){
     e.life--;if(e.life<=0){em.splice(i,1);continue;}
     e.x+=e.vx;e.y+=e.vy;e.vx*=0.96;e.vy*=0.96;
     for(const c of pc){if(!c.alive||!e.alive)continue;
-      if(dist(c.x,c.y,e.x,e.y)<c.radius+e.radius){c.radius+=e.radius*0.20;c.mass=r2m(c.radius);e.alive=false;break;}}
+      if(e.from==='player')continue; // can't eat own eject
+      if(dist(c.x,c.y,e.x,e.y)<c.radius+e.radius){c.radius+=e.radius*0.15;c.mass=r2m(c.radius);e.alive=false;break;}}
     if(e.alive)for(const b of bots){if(!b.alive)continue;
       if(dist(b.x,b.y,e.x,e.y)<b.radius+e.radius){b.radius+=e.radius*0.15;b.mass=r2m(b.radius);e.alive=false;break;}}
     if(!e.alive)em.splice(i,1);
@@ -455,7 +456,7 @@ function render(){
     ctx.lineWidth=e.isP?3:2;ctx.stroke();
     ctx.beginPath();ctx.arc(e.x,e.y,rad-2,0,Math.PI*2);
     ctx.strokeStyle='rgba(0,0,0,.06)';ctx.lineWidth=1;ctx.stroke();
-    const fs=Math.max(12,rad*0.36);
+    const fs=Math.max(10,rad*0.26);
     ctx.font=`600 ${fs}px 'Segoe UI',Arial,sans-serif`;
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.shadowColor='rgba(0,0,0,.8)';ctx.shadowBlur=4;
