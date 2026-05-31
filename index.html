@@ -54,7 +54,7 @@ canvas{display:block}
     <button class="menu-btn medium" onclick="startGame('medium')">Médio</button>
     <button class="menu-btn hard" onclick="startGame('hard')">Difícil</button>
   </div>
-  <div class="menu-bottom">Mouse mover · Espaço dividir · W ejetar</div>
+  <div class="menu-bottom">Mouse mover · Espaço dividir (tiro) · W ejetar</div>
 </div>
 
 <canvas id="canvas"></canvas>
@@ -66,7 +66,7 @@ canvas{display:block}
 
 <div id="gameOver">
   <h1>💀 Game Over</h1>
-  <div class="sub">Você foi comido!</div>
+  <div class="sub">Todas as suas células foram comidas!</div>
   <div class="final-score" id="finalScore">0</div>
   <div class="stats">Massa: <span id="finalMass">0</span></div>
   <button class="menu-btn" onclick="showMenu()">Jogar Novamente</button>
@@ -78,22 +78,22 @@ let W,H;
 function resize(){W=cvs.width=innerWidth;H=cvs.height=innerHeight}
 resize();addEventListener('resize',resize);
 
-const WW=6000,WH=6000,FOOD_N=800,SPLIT_R=25,MAX_C=16;
+const WW=7000,WH=7000,FOOD_N=1000,SPLIT_R=25,MAX_C=16;
 const C=['#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6',
   '#e91e63','#ff5722','#00bcd4','#8bc34a','#ff9800','#673ab7','#3f51b5',
   '#009688','#795548','#607d8b','#ff6f00','#c2185b','#7b1fa2','#4caf50',
   '#cddc39','#03a9f4','#e040fb','#76ff03','#ffab00','#ff4081','#536dfe'];
-const BN=['Noob','Pro','XD','Bot','Legend','Troll','King','Boss','Slayer','Ninja',
-  'Ghost','Shadow','Blaze','Frost','Storm','Venom','Ace','Max','GG','EZ',
-  'LOL','Wow','RIP','OMG','Cool','God','Hero','Dark','Light','Fire','Ice',
-  'Wind','Star','Moon','Sun','Rain','Snow','Pixel','Byte','Zero','Alpha',
-  'Beta','Omega','Dragon','Titan','Nova','Cosmo','Neon','Killer','Flash',
-  'Sniper','Wolf','Hawk','Fox','Bolt','Fury','Cyber','Spark','Echo'];
+const BN=['Player','Noob','Pro','XD','Bot','Legend','Troll','King','Boss','Slayer',
+  'Ninja','Ghost','Shadow','Blaze','Frost','Storm','Venom','Ace','Max','GG',
+  'EZ','LOL','Wow','RIP','OMG','Cool','God','Hero','Dark','Light','Fire',
+  'Ice','Wind','Star','Moon','Sun','Rain','Snow','Pixel','Byte','Zero',
+  'Alpha','Beta','Omega','Dragon','Titan','Nova','Cosmo','Neon','Killer',
+  'Sniper','Wolf','Hawk','Fox','Bolt','Fury','Cyber','Echo'];
 
 const D={
-  easy:  {n:6, mn:7, mx:18, sm:0.85, ai:'easy',   lb:'FÁCIL'},
+  easy:  {n:6, mn:7, mx:16, sm:0.85, ai:'easy',   lb:'FÁCIL'},
   medium:{n:10,mn:13,mx:26, sm:1.0,  ai:'medium', lb:'MÉDIO'},
-  hard:  {n:16,mn:20,mx:42, sm:1.15, ai:'hard',   lb:'DIFÍCIL'}
+  hard:  {n:16,mn:20,mx:40, sm:1.15, ai:'hard',   lb:'DIFÍCIL'}
 };
 
 const rand=(a,b)=>a+Math.random()*(b-a);
@@ -113,45 +113,55 @@ let fid=null;
 
 function cell(x,y,radius,color,name,isP){
   return{id:Math.random().toString(36).slice(2,8),x,y,radius,mass:r2m(radius),
-    color:color||rc(),name:name||rn(),isP,alive:true,vx:0,vy:0,merge:true,mt:0};
+    color:color||rc(),name:name||rn(),isP,alive:true,vx:0,vy:0,
+    merge:true,mt:0,burst:0};
 }
-function spd(e){return 12*Math.pow(17/e.radius,0.35)}
+function spd(e){return 13*Math.pow(15/e.radius,0.25)}
 function totalMass(){let s=0;for(const c of pc)if(c.alive)s+=c.mass;return s}
 
 // Food
-function mf(){const r=rand(2,5);return{x:rand(r,WW-r),y:rand(r,WH-r),radius:r,color:rc()}}
+function mf(){const r=rand(3,6);return{x:rand(r,WW-r),y:rand(r,WH-r),radius:r,color:rc()}}
 function initFood(){foods=[];for(let i=0;i<FOOD_N;i++)foods.push(mf())}
 
-// Stars — shiny bonus items
-function ms(){const r=rand(10,16);return{x:rand(r,WW-r),y:rand(r,WH-r),radius:r,color:'#ffd700'}}
-function initStars(){stars=[];for(let i=0;i<12;i++)stars.push(ms())}
+// Stars
+function ms(){const r=rand(10,14);return{x:rand(r,WW-r),y:rand(r,WH-r),radius:r,color:'#ffd700'}}
+function initStars(){stars=[];for(let i=0;i<15;i++)stars.push(ms())}
 
-// Eject — breaks into multiple pieces
+// Eject
 function ej(c){
   if(c.radius<10)return;
   const a=Math.atan2(mx.wy-c.y,mx.wx-c.x);
   const spread=ri(3,6);
   for(let i=0;i<spread;i++){
-    const ang=a+rand(-0.5,0.5),r=rand(3,6),sp=rand(12,22);
-    em.push({x:c.x+Math.cos(a)*c.radius,y:c.y+Math.sin(a)*c.radius,radius:r,color:c.color,
+    const ang=a+rand(-0.6,0.6),r=rand(3,6),sp=rand(12,22);
+    em.push({x:c.x+Math.cos(a)*c.radius,y:c.y+Math.sin(a)*c.radius,
+      radius:r,color:c.color,
       vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:600,alive:true});
   }
   const loss=r2m(rand(3,5))*spread*0.8;
   c.radius=m2r(Math.max(5,c.mass-loss));c.mass=r2m(c.radius);
 }
 
-// Split
+// Split — shoots forward like a weapon with burst
 function split(){
   const nc=[];
   for(const c of pc){
     if(!c.alive||c.radius<SPLIT_R)continue;
     if(pc.length+nc.length>=MAX_C)break;
     const a=Math.atan2(mx.wy-c.y,mx.wx-c.x),nr=c.radius/Math.SQRT2;
+    // New cell flies forward
     const n=cell(c.x,c.y,nr,c.color,c.name,true);
-    n.merge=false;n.mt=ri(180,300);n.vx=Math.cos(a)*38;n.vy=Math.sin(a)*38;
+    n.merge=false;n.mt=ri(180,300);
+    n.vx=Math.cos(a)*55;n.vy=Math.sin(a)*55;
+    n.burst=30;
+    // Original cell pushed back
     c.radius=nr;c.mass=r2m(nr);
-    c.merge=false;c.mt=ri(180,300);c.vx=-Math.cos(a)*22;c.vy=-Math.sin(a)*22;
+    c.merge=false;c.mt=ri(180,300);
+    c.vx=-Math.cos(a)*18;c.vy=-Math.sin(a)*18;
+    c.burst=15;
     nc.push(n);
+    // Particles for liquid split effect
+    spawnP(c.x,c.y,c.color,30);
   }
   for(const x of nc)pc.push(x);
 }
@@ -199,7 +209,7 @@ function ub(b){
     if(b.radius>60&&Math.random()<0.0008){
       const a=rand(0,Math.PI*2),nr=b.radius/Math.SQRT2;
       const ch=cell(b.x,b.y,nr,b.color,b.name,false);
-      ch.vx=Math.cos(a)*22;ch.vy=Math.sin(a)*22;
+      ch.vx=Math.cos(a)*28;ch.vy=Math.sin(a)*28;
       ch.tx=rand(100,WW-100);ch.ty=rand(100,WH-100);ch.tt=0;
       b.radius=nr;b.mass=r2m(nr);bots.push(ch);
     }
@@ -212,8 +222,8 @@ function ub(b){
 }
 
 function spawnP(x,y,color,n){
-  for(let i=0;i<n;i++){const a=rand(0,Math.PI*2),s=rand(1,5);
-    parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,radius:rand(2,5),color,life:ri(15,40),alive:true});}}
+  for(let i=0;i<n;i++){const a=rand(0,Math.PI*2),s=rand(1,6);
+    parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,radius:rand(2,6),color,life:ri(15,40),alive:true});}}
 
 function startGame(dk){
   diff=dk;pc=[];bots=[];foods=[];em=[];stars=[];parts=[];
@@ -221,7 +231,7 @@ function startGame(dk){
   document.getElementById('gameOver').style.display='none';
   document.getElementById('difficultyLabel').textContent=D[dk].lb;
   document.getElementById('difficultyLabel').style.display='block';
-  const sc=cell(WW/2+rand(-30,30),WH/2+rand(-30,30),5,'#3498db','Você',true);
+  const sc=cell(WW/2+rand(-30,30),WH/2+rand(-30,30),6,'#3498db','Você',true);
   pc.push(sc);cam.x=sc.x;cam.y=sc.y;cam.z=1;cam.tz=1;
   initFood();initStars();initBots(dk);running=true;
   if(fid)cancelAnimationFrame(fid);
@@ -247,27 +257,37 @@ function canEat(a,b){return a.radius>b.radius*1.10}
 function collide(a,b){
   const d=dist(a.x,a.y,b.x,b.y);
   if(d>=a.radius+b.radius||d===0)return false;
+  // Merge player cells
   if(a.isP&&b.isP){
     if(a.merge&&b.merge){
       const tm=a.mass+b.mass;
       a.x=(a.x*a.mass+b.x*b.mass)/tm;a.y=(a.y*a.mass+b.y*b.mass)/tm;
-      a.radius=m2r(tm);a.mass=tm;b.alive=false;return true;
+      a.radius=m2r(tm);a.mass=tm;b.alive=false;
+      spawnP(a.x,a.y,a.color,25);
+      return true;
     }
     return false;
   }
+  // Player vs bot
   if(a.isP||b.isP){
     const p=a.isP?a:b,o=a.isP?b:a;
     if(canEat(p,o)){
       const g=o.mass*0.8;p.radius=m2r(p.mass+g);p.mass=r2m(p.radius);o.alive=false;
-      spawnP(o.x,o.y,o.color,20);return true;
+      spawnP(o.x,o.y,o.color,25);
+      if(!o.isP&&o.vx){/* bot eaten, particles already spawned */}
+      return true;
     }else if(canEat(o,p)){
       o.radius=m2r(o.mass+p.mass*0.8);o.mass=r2m(o.radius);p.alive=false;
-      gameOver();return true;
+      spawnP(p.x,p.y,p.color,30);
+      // Only game over if ALL player cells are dead
+      if(pc.every(c=>!c.alive))gameOver();
+      return true;
     }
     return false;
   }
-  if(canEat(a,b)){a.radius=m2r(a.mass+b.mass*0.6);a.mass=r2m(a.radius);b.alive=false;spawnP(b.x,b.y,b.color,10);return true;}
-  if(canEat(b,a)){b.radius=m2r(b.mass+a.mass*0.6);b.mass=r2m(b.radius);a.alive=false;spawnP(a.x,a.y,a.color,10);return true;}
+  // Bot vs bot
+  if(canEat(a,b)){a.radius=m2r(a.mass+b.mass*0.6);a.mass=r2m(a.radius);b.alive=false;spawnP(b.x,b.y,b.color,15);return true;}
+  if(canEat(b,a)){b.radius=m2r(b.mass+a.mass*0.6);b.mass=r2m(b.radius);a.alive=false;spawnP(a.x,a.y,a.color,15);return true;}
   return false;
 }
 
@@ -280,20 +300,29 @@ function update(){
   mx.wx=(mx.x-W/2)/cam.z+cam.x;
   mx.wy=(mx.y-H/2)/cam.z+cam.y;
 
-  // Player
+  // Player movement with burst support
   for(const c of pc){
     if(!c.alive)continue;
     const dx=mx.wx-c.x,dy=mx.wy-c.y,d=Math.hypot(dx,dy);
-    if(d>3){const ms=spd(c);c.vx+=(dx/d)*ms*0.10;c.vy+=(dy/d)*ms*0.10;}
+    const ms=spd(c);
+    if(c.burst>0){
+      c.burst--;
+      // Minimal mouse influence during burst — cell flies on its own
+      const influence=0.03;
+      if(d>3){c.vx+=(dx/d)*ms*influence;c.vy+=(dy/d)*ms*influence;}
+    }else{
+      if(d>3){c.vx+=(dx/d)*ms*0.10;c.vy+=(dy/d)*ms*0.10;}
+    }
     c.vx*=0.90;c.vy*=0.90;
-    const s=Math.hypot(c.vx,c.vy),ms=spd(c);
+    const s=Math.hypot(c.vx,c.vy);
     if(s>ms){c.vx=(c.vx/s)*ms;c.vy=(c.vy/s)*ms;}
     c.x+=c.vx;c.y+=c.vy;
     c.x=clamp(c.x,c.radius,WW-c.radius);c.y=clamp(c.y,c.radius,WH-c.radius);
     c.mass=r2m(c.radius);
     if(!c.merge){c.mt--;if(c.mt<=0)c.merge=true;}
   }
-  // Repulsion between player cells (prevent overlap)
+
+  // Repulsion between player cells
   for(let i=0;i<pc.length;i++)for(let j=i+1;j<pc.length;j++){
     const a=pc[i],b=pc[j];if(!a.alive||!b.alive)continue;
     const d=dist(a.x,a.y,b.x,b.y),min=a.radius+b.radius;
@@ -303,6 +332,7 @@ function update(){
       b.x+=Math.cos(ang)*push;b.y+=Math.sin(ang)*push;
     }
   }
+
   pc=pc.filter(c=>c.alive);
   if(pc.length===0&&running){gameOver();return;}
 
@@ -313,19 +343,21 @@ function update(){
   for(const c of pc){
     if(!c.alive)continue;
     for(let i=foods.length-1;i>=0;i--){const f=foods[i];
-      if(dist(c.x,c.y,f.x,f.y)<c.radius+f.radius){c.radius+=f.radius*0.30;c.mass=r2m(c.radius);foods[i]=mf();}}
-    // Player eat stars
+      if(dist(c.x,c.y,f.x,f.y)<c.radius+f.radius){
+        c.radius+=f.radius*0.20;c.mass=r2m(c.radius);foods[i]=mf();}}
     for(let i=stars.length-1;i>=0;i--){const s=stars[i];
-      if(dist(c.x,c.y,s.x,s.y)<c.radius+s.radius){c.radius+=s.radius*0.50;c.mass=r2m(c.radius);spawnP(s.x,s.y,'#ffd700',25);stars[i]=ms();}}
+      if(dist(c.x,c.y,s.x,s.y)<c.radius+s.radius){
+        c.radius+=s.radius*0.40;c.mass=r2m(c.radius);
+        spawnP(s.x,s.y,'#ffd700',30);stars[i]=ms();}}
   }
 
   // Bots eat food & stars
   for(const b of bots){
     if(!b.alive)continue;
     for(let i=foods.length-1;i>=0;i--){const f=foods[i];
-      if(dist(b.x,b.y,f.x,f.y)<b.radius+f.radius){b.radius+=f.radius*0.20;b.mass=r2m(b.radius);foods[i]=mf();}}
+      if(dist(b.x,b.y,f.x,f.y)<b.radius+f.radius){b.radius+=f.radius*0.15;b.mass=r2m(b.radius);foods[i]=mf();}}
     for(let i=stars.length-1;i>=0;i--){const s=stars[i];
-      if(dist(b.x,b.y,s.x,s.y)<b.radius+s.radius){b.radius+=s.radius*0.35;b.mass=r2m(b.radius);stars[i]=ms();}}
+      if(dist(b.x,b.y,s.x,s.y)<b.radius+s.radius){b.radius+=s.radius*0.30;b.mass=r2m(b.radius);stars[i]=ms();}}
   }
 
   // Ejected mass
@@ -345,26 +377,25 @@ function update(){
   for(let i=0;i<al.length;i++)for(let j=i+1;j<al.length;j++){
     const a=al[i],b=al[j];
     if(!a.alive||!b.alive)continue;
-    if(Math.abs(a.x-b.x)>a.radius+b.radius+20)continue;
-    if(Math.abs(a.y-b.y)>a.radius+b.radius+20)continue;
+    if(Math.abs(a.x-b.x)>a.radius+b.radius+20||Math.abs(a.y-b.y)>a.radius+b.radius+20)continue;
     collide(a,b);
   }
 
   for(const b of bots)if(!b.alive)respawn(b);
 
   for(let i=parts.length-1;i>=0;i--){const p=parts[i];
-    p.x+=p.vx;p.y+=p.vy;p.life--;p.radius*=0.97;
+    p.x+=p.vx;p.y+=p.vy;p.life--;p.radius*=0.96;
     if(p.life<=0||p.radius<0.3)parts.splice(i,1);}
 
-  // Camera
+  // Camera — smooth, stays zoomed in longer
   let cx=0,cy=0,mt=0;
   for(const c of pc){if(!c.alive)continue;cx+=c.x*c.mass;cy+=c.y*c.mass;mt+=c.mass;}
   if(mt>0){cx/=mt;cy/=mt;}
   const ar=pc.reduce((s,c)=>c.alive?s+c.radius:s,0)/Math.max(1,pc.filter(c=>c.alive).length);
-  cam.tz=clamp(65/(ar+20),0.07,1.2);
+  cam.tz=clamp(75/(ar+40),0.10,1.4);
   const hw=W/2/cam.z,hh=H/2/cam.z;
   cam.x+=(cx-cam.x)*0.1;cam.y+=(cy-cam.y)*0.1;
-  cam.z+=(cam.tz-cam.z)*0.06;
+  cam.z+=(cam.tz-cam.z)*0.05;
   cam.x=clamp(cam.x,hw,WW-hw);cam.y=clamp(cam.y,hh,WH-hh);
   document.getElementById('score').textContent=Math.floor(totalMass());
 }
@@ -380,31 +411,28 @@ function render(){
   // Grid
   ctx.strokeStyle='rgba(0,0,0,.05)';ctx.lineWidth=1;
   const gs=50;
-  const sx=Math.floor(l/gs)*gs,sy=Math.floor(t/gs)*gs;
-  for(let x=sx;x<=r;x+=gs){ctx.beginPath();ctx.moveTo(x,t);ctx.lineTo(x,b);ctx.stroke()}
-  for(let y=sy;y<=b;y+=gs){ctx.beginPath();ctx.moveTo(l,y);ctx.lineTo(r,y);ctx.stroke()}
+  for(let x=Math.floor(l/gs)*gs;x<=r;x+=gs){ctx.beginPath();ctx.moveTo(x,t);ctx.lineTo(x,b);ctx.stroke()}
+  for(let y=Math.floor(t/gs)*gs;y<=b;y+=gs){ctx.beginPath();ctx.moveTo(l,y);ctx.lineTo(r,y);ctx.stroke()}
   // Border
-  ctx.strokeStyle='rgba(0,0,0,.1)';ctx.lineWidth=4;
-  ctx.strokeRect(0,0,WW,WH);
-  // Stars (shiny bonus items with glow)
+  ctx.strokeStyle='rgba(0,0,0,.1)';ctx.lineWidth=4;ctx.strokeRect(0,0,WW,WH);
+  // Stars
   for(const s of stars){
     if(s.x<l-30||s.x>r+30||s.y<t-30||s.y>b+30)continue;
-    const g=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,s.radius*2.5);
-    g.addColorStop(0,'rgba(255,215,0,.25)');g.addColorStop(1,'rgba(255,215,0,0)');
-    ctx.beginPath();ctx.arc(s.x,s.y,s.radius*2.5,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
-    g.addColorStop(0,'#fffbe6');g.addColorStop(0.4,'#ffd700');g.addColorStop(1,'#b8860b');
-    ctx.beginPath();ctx.arc(s.x,s.y,s.radius,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
-    ctx.strokeStyle='rgba(255,215,0,.5)';ctx.lineWidth=2;ctx.stroke();
-    // Star symbol
-    ctx.fillStyle='rgba(255,255,255,.9)';ctx.font=`${s.radius*0.8}px sans-serif`;
-    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('✦',s.x,s.y);
+    const g=ctx.createRadialGradient(s.x,s.y,0,s.x,s.y,s.radius*3);
+    g.addColorStop(0,'rgba(255,215,0,.2)');g.addColorStop(1,'rgba(255,215,0,0)');
+    ctx.beginPath();ctx.arc(s.x,s.y,s.radius*3,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+    ctx.beginPath();ctx.arc(s.x,s.y,s.radius,0,Math.PI*2);
+    ctx.fillStyle='#ffd700';ctx.fill();
+    ctx.strokeStyle='rgba(255,200,0,.4)';ctx.lineWidth=2;ctx.stroke();
+    ctx.fillStyle='#fff';ctx.font=`${s.radius*0.7}px sans-serif`;
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('✦',s.x,s.y+1);
   }
   // Food
   for(const f of foods){
     if(f.x<l-10||f.x>r+10||f.y<t-10||f.y>b+10)continue;
     ctx.beginPath();ctx.arc(f.x,f.y,f.radius,0,Math.PI*2);
     ctx.fillStyle=f.color;ctx.fill();
-    ctx.strokeStyle='rgba(0,0,0,.1)';ctx.lineWidth=0.5;ctx.stroke();
+    ctx.strokeStyle='rgba(0,0,0,.08)';ctx.lineWidth=0.5;ctx.stroke();
   }
   // Ejected mass
   for(const e of em){if(!e.alive)continue;
@@ -414,8 +442,7 @@ function render(){
   // Particles
   for(const p of parts){
     ctx.beginPath();ctx.arc(p.x,p.y,Math.max(0.5,p.radius),0,Math.PI*2);
-    ctx.fillStyle=p.color+Math.floor(p.life*4).toString(16).padStart(2,'0');
-    ctx.fill();}
+    ctx.fillStyle=p.color+Math.floor(p.life*4).toString(16).padStart(2,'0');ctx.fill();}
   // Cells
   const rc=[...pc.filter(c=>c.alive).map(c=>({...c,isP:true})),
             ...bots.filter(b=>b.alive).map(b=>({...b,isP:false}))]
@@ -423,17 +450,13 @@ function render(){
   for(const e of rc){
     if(e.x<l-150||e.x>r+150||e.y<t-150||e.y>b+150)continue;
     const rad=e.radius;
-    // Solid fill
     ctx.beginPath();ctx.arc(e.x,e.y,rad,0,Math.PI*2);
     ctx.fillStyle=e.color;ctx.fill();
-    // Dark border
     ctx.strokeStyle=e.isP?'rgba(0,0,0,.5)':'rgba(0,0,0,.25)';
     ctx.lineWidth=e.isP?3:2;ctx.stroke();
-    // Inner skin line
     ctx.beginPath();ctx.arc(e.x,e.y,rad-2,0,Math.PI*2);
     ctx.strokeStyle='rgba(0,0,0,.06)';ctx.lineWidth=1;ctx.stroke();
-    // Name
-    const fs=Math.max(12,rad*0.38);
+    const fs=Math.max(12,rad*0.36);
     ctx.font=`600 ${fs}px 'Segoe UI',Arial,sans-serif`;
     ctx.textAlign='center';ctx.textBaseline='middle';
     ctx.shadowColor='rgba(0,0,0,.8)';ctx.shadowBlur=4;
