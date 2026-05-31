@@ -116,7 +116,7 @@ function cell(x,y,radius,color,name,isP){
     color:color||rc(),name:name||rn(),isP,alive:true,vx:0,vy:0,
     merge:true,mt:0,burst:0};
 }
-function spd(e){return 13*Math.pow(15/e.radius,0.25)}
+function spd(e){return 11*Math.pow(16/e.radius,0.36)}
 function totalMass(){let s=0;for(const c of pc)if(c.alive)s+=c.mass;return s}
 
 // Food
@@ -127,41 +127,42 @@ function initFood(){foods=[];for(let i=0;i<FOOD_N;i++)foods.push(mf())}
 function ms(){const r=rand(10,14);return{x:rand(r,WW-r),y:rand(r,WH-r),radius:r,color:'#ffd700'}}
 function initStars(){stars=[];for(let i=0;i<15;i++)stars.push(ms())}
 
-// Eject
+// Eject — only from the biggest cell, loss matches ejected mass
 function ej(c){
   if(c.radius<10)return;
   const a=Math.atan2(mx.wy-c.y,mx.wx-c.x);
-  const spread=ri(3,6);
-  for(let i=0;i<spread;i++){
-    const ang=a+rand(-0.6,0.6),r=rand(3,6),sp=rand(12,22);
+  const count=ri(3,6);
+  let totalLoss=0;
+  for(let i=0;i<count;i++){
+    const ang=a+rand(-0.5,0.5),r=rand(3,6),sp=rand(12,22);
+    totalLoss+=r2m(r);
     em.push({x:c.x+Math.cos(a)*c.radius,y:c.y+Math.sin(a)*c.radius,
       radius:r,color:c.color,
       vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,life:600,alive:true});
   }
-  const loss=r2m(rand(3,5))*spread*0.8;
+  const loss=totalLoss*0.85;
   c.radius=m2r(Math.max(5,c.mass-loss));c.mass=r2m(c.radius);
 }
 
-// Split — shoots forward like a weapon with burst
+// Split — shoots forward like a weapon with burst (zero mouse influence during flight)
 function split(){
   const nc=[];
   for(const c of pc){
     if(!c.alive||c.radius<SPLIT_R)continue;
     if(pc.length+nc.length>=MAX_C)break;
     const a=Math.atan2(mx.wy-c.y,mx.wx-c.x),nr=c.radius/Math.SQRT2;
-    // New cell flies forward
+    // New cell flies forward fast
     const n=cell(c.x,c.y,nr,c.color,c.name,true);
     n.merge=false;n.mt=ri(180,300);
-    n.vx=Math.cos(a)*55;n.vy=Math.sin(a)*55;
-    n.burst=30;
+    n.vx=Math.cos(a)*75;n.vy=Math.sin(a)*75;
+    n.burst=45;
     // Original cell pushed back
     c.radius=nr;c.mass=r2m(nr);
     c.merge=false;c.mt=ri(180,300);
-    c.vx=-Math.cos(a)*18;c.vy=-Math.sin(a)*18;
-    c.burst=15;
+    c.vx=-Math.cos(a)*22;c.vy=-Math.sin(a)*22;
+    c.burst=20;
     nc.push(n);
-    // Particles for liquid split effect
-    spawnP(c.x,c.y,c.color,30);
+    spawnP(c.x,c.y,c.color,35);
   }
   for(const x of nc)pc.push(x);
 }
@@ -307,9 +308,7 @@ function update(){
     const ms=spd(c);
     if(c.burst>0){
       c.burst--;
-      // Minimal mouse influence during burst — cell flies on its own
-      const influence=0.03;
-      if(d>3){c.vx+=(dx/d)*ms*influence;c.vy+=(dy/d)*ms*influence;}
+      // Zero mouse influence during burst — cell flies purely on its momentum
     }else{
       if(d>3){c.vx+=(dx/d)*ms*0.10;c.vy+=(dy/d)*ms*0.10;}
     }
@@ -471,7 +470,7 @@ cvs.addEventListener('mousemove',e=>{mx.x=e.clientX;mx.y=e.clientY});
 document.addEventListener('keydown',e=>{
   if(!running)return;
   if(e.code==='Space'){e.preventDefault();split();}
-  if(e.key==='w'||e.key==='W'){e.preventDefault();for(const c of pc)if(c.alive)ej(c);}
+  if(e.key==='w'||e.key==='W'){e.preventDefault();const bc=pc.filter(c=>c.alive).sort((a,b)=>b.radius-a.radius)[0];if(bc)ej(bc);}
 });
 cvs.addEventListener('contextmenu',e=>e.preventDefault());
 showMenu();
