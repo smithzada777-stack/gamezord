@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GameZord</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #0a0a0a; overflow: hidden; font-family: 'Segoe UI', Arial, sans-serif; user-select: none; }
+    canvas { display: block; cursor: none; }
+
+    #menu {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: radial-gradient(ellipse at center, #1a1a2e 0%, #0a0a0a 100%);
+      z-index: 100;
+    }
+    #menu h1 {
+      font-size: 72px; color: #fff; margin-bottom: 10px;
+      text-shadow: 0 0 30px rgba(52,152,219,.5), 0 0 60px rgba(52,152,219,.3);
+      letter-spacing: 4px;
+    }
+    #menu p { color: #888; font-size: 18px; margin-bottom: 40px; }
+    .menu-buttons { display: flex; gap: 20px; }
+    .menu-btn {
+      padding: 16px 48px; font-size: 20px; border: 2px solid rgba(255,255,255,.15);
+      border-radius: 12px; background: rgba(255,255,255,.05); color: #fff;
+      cursor: pointer; transition: all .3s; font-weight: 600; letter-spacing: 1px;
+    }
+    .menu-btn:hover { transform: scale(1.05); }
+    .menu-btn.easy:hover { border-color: #2ecc71; box-shadow: 0 0 25px rgba(46,204,113,.3); }
+    .menu-btn.medium:hover { border-color: #f39c12; box-shadow: 0 0 25px rgba(243,156,18,.3); }
+    .menu-btn.hard:hover { border-color: #e74c3c; box-shadow: 0 0 25px rgba(231,76,60,.3); }
+
+    #hud {
+      position: fixed; top: 20px; left: 20px; color: #fff; font-size: 22px;
+      font-weight: 600; text-shadow: 0 2px 8px rgba(0,0,0,.8); z-index: 10;
+      pointer-events: none;
+    }
+
+    #leaderboard {
+      position: fixed; top: 20px; right: 20px; background: rgba(0,0,0,.6);
+      backdrop-filter: blur(8px); border-radius: 12px; padding: 16px 20px;
+      min-width: 180px; border: 1px solid rgba(255,255,255,.1); z-index: 10;
+      pointer-events: none;
+    }
+    #leaderboard h3 { color: #aaa; font-size: 14px; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px; }
+    #leaderboard ol { list-style: none; counter-reset: lb; }
+    #leaderboard li {
+      counter-increment: lb; color: #fff; font-size: 14px; padding: 3px 0;
+      display: flex; align-items: center; gap: 8px;
+    }
+    #leaderboard li::before {
+      content: counter(lb); display: inline-flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px; border-radius: 50%; font-size: 11px; font-weight: 700;
+      background: rgba(255,255,255,.1); color: #888;
+    }
+    #leaderboard li .lb-color { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    #leaderboard li .lb-name { flex: 1; }
+    #leaderboard li .lb-score { color: #888; font-size: 12px; }
+
+    #gameOver {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(0,0,0,.85); backdrop-filter: blur(6px); z-index: 200;
+    }
+    #gameOver h1 { font-size: 56px; color: #e74c3c; margin-bottom: 10px; }
+    #gameOver p { color: #ccc; font-size: 24px; margin-bottom: 30px; }
+    #gameOver .final-score { color: #f1c40f; font-size: 28px; font-weight: 700; }
+    #gameOver .menu-btn { margin-top: 10px; }
+
+    #difficultyLabel {
+      position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+      color: rgba(255,255,255,.4); font-size: 14px; letter-spacing: 2px;
+      text-transform: uppercase; z-index: 10; pointer-events: none;
+      text-shadow: 0 2px 8px rgba(0,0,0,.8);
+    }
+  </style>
+</head>
+<body>
+  <div id="menu">
+    <h1>GameZord</h1>
+    <p>Escolha a dificuldade</p>
+    <div class="menu-buttons">
+      <button class="menu-btn easy" onclick="startGame('easy')">Fácil</button>
+      <button class="menu-btn medium" onclick="startGame('medium')">Médio</button>
+      <button class="menu-btn hard" onclick="startGame('hard')">Difícil</button>
+    </div>
+  </div>
+
+  <canvas id="canvas"></canvas>
+
+  <div id="hud">Pontuação: <span id="score">0</span></div>
+  <div id="difficultyLabel"></div>
+
+  <div id="leaderboard">
+    <h3>Leaderboard</h3>
+    <ol id="leaderboardList"></ol>
+  </div>
+
+  <div id="gameOver">
+    <h1>💀 Game Over</h1>
+    <p>Pontuação final: <span class="final-score" id="finalScore">0</span></p>
+    <button class="menu-btn" onclick="showMenu()">Jogar Novamente</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    let W, H;
+
+    function resize() {
+      W = canvas.width = window.innerWidth;
+      H = canvas.height = window.innerHeight;
+    }
+    resize();
+    window.addEventListener('resize', resize);
+
+    // ============ CONFIG ============
+    const WORLD_W = 5000;
+    const WORLD_H = 5000;
+    const FOOD_COUNT = 600;
+    const FOOD_R = 5;
+
+    const DIFFICULTIES = {
+      easy:   { bots: 8,  minSize: 15, maxSize: 25, speed: 1.8, ai: 'easy',   label: 'Fácil' },
+      medium: { bots: 12, minSize: 20, maxSize: 35, speed: 2.3, ai: 'medium', label: 'Médio' },
+      hard:   { bots: 18, minSize: 30, maxSize: 55, speed: 2.8, ai: 'hard',   label: 'Difícil' }
+    };
+
+    const BOT_NAMES = [
+      'Player','Noob','Pro','XD','Bot','Legend','Troll','King','Queen','Boss',
+      'Slayer','Ninja','Ghost','Shadow','Blaze','Frost','Storm','Venom','Ace','Max',
+      'GG','EZ','LOL','Wow','RIP','OMG','Cool','NooB','God','Hero','Dark','Light',
+      'Fire','Ice','Wind','Star','Moon','Sun','Rain','Snow','Pixel','Byte','Zero',
+      'Alpha','Beta','Omega','Dragon','Titan','Nova','Cosmo','Neon'
+    ];
+
+    const COLORS = [
+      '#e74c3c','#e67e22','#f1c40f','#2ecc71','#1abc9c','#3498db','#9b59b6',
+      '#e91e63','#ff5722','#00bcd4','#8bc34a','#ff9800','#673ab7','#3f51b5',
+      '#009688','#795548','#607d8b','#ff6f00','#c2185b','#7b1fa2'
+    ];
+
+    function rand(a, b) { return a + Math.random() * (b - a); }
+    function randInt(a, b) { return Math.floor(rand(a, b + 1)); }
+    function dist(x1,y1,x2,y2) { return Math.hypot(x2 - x1, y2 - y1); }
+    function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
+
+    // ============ STATE ============
+    let gameRunning = false;
+    let difficulty = null;
+    let player = null;
+    let foods = [];
+    let bots = [];
+    let camera = { x: 0, y: 0 };
+    let mouse = { x: W / 2, y: H / 2 };
+
+    let animId = null;
+
+    // ============ ENTITIES ============
+    function createEntity(x, y, radius, color, name) {
+      return {
+        x, y, radius,
+        mass: Math.PI * radius * radius,
+        color: color || COLORS[randInt(0, COLORS.length - 1)],
+        name: name || BOT_NAMES[randInt(0, BOT_NAMES.length - 1)],
+        alive: true,
+        targetX: x, targetY: y
+      };
+    }
+
+    function getSpeed(entity) {
+      return 3.2 / Math.sqrt(entity.mass / 300);
+    }
+
+    // ============ FOOD ============
+    function spawnFood() {
+      return {
+        x: rand(FOOD_R, WORLD_W - FOOD_R),
+        y: rand(FOOD_R, WORLD_H - FOOD_R),
+        radius: rand(3, 6),
+        color: COLORS[randInt(0, COLORS.length - 1)]
+      };
+    }
+
+    function initFood() {
+      foods = [];
+      for (let i = 0; i < FOOD_COUNT; i++) foods.push(spawnFood());
+    }
+
+    // ============ BOT AI ============
+    function updateBotAI(bot, difficulty) {
+      const diff = DIFFICULTIES[difficulty];
+      const ai = diff.ai;
+
+      const viewRange = 400;
+      const dangerRange = 200;
+
+      // Find nearest food
+      let nearFood = null;
+      let nearFoodD = Infinity;
+      for (const f of foods) {
+        const d = dist(bot.x, bot.y, f.x, f.y);
+        if (d < nearFoodD) { nearFoodD = d; nearFood = f; }
+      }
+
+      // Find threats and prey
+      let threat = null;
+      let threatD = Infinity;
+      let prey = null;
+      let preyD = Infinity;
+
+      const allCells = [player, ...bots].filter(e => e && e.alive);
+      for (const c of allCells) {
+        if (c === bot) continue;
+        const d = dist(bot.x, bot.y, c.x, c.y);
+        if (c.radius > bot.radius * 1.15 && d < threatD) {
+          threatD = d; threat = c;
+        }
+        if (c.radius < bot.radius * 0.85 && d < preyD) {
+          preyD = d; prey = c;
+        }
+      }
+
+      let tx = bot.targetX;
+      let ty = bot.targetY;
+
+      if (ai === 'easy') {
+        // Random wander, change target occasionally
+        if (Math.random() < 0.01 || dist(bot.x, bot.y, tx, ty) < 100) {
+          tx = rand(100, WORLD_W - 100);
+          ty = rand(100, WORLD_H - 100);
+        }
+        // If food is very close, go for it
+        if (nearFood && nearFoodD < 250) { tx = nearFood.x; ty = nearFood.y; }
+        // Flee from threats
+        if (threat && threatD < dangerRange) {
+          const angle = Math.atan2(bot.y - threat.y, bot.x - threat.x);
+          tx = bot.x + Math.cos(angle) * 300;
+          ty = bot.y + Math.sin(angle) * 300;
+        }
+      } else if (ai === 'medium') {
+        // Seek food actively
+        if (nearFood && nearFoodD < 500) { tx = nearFood.x; ty = nearFood.y; }
+        else if (Math.random() < 0.005 || dist(bot.x, bot.y, tx, ty) < 80) {
+          tx = rand(100, WORLD_W - 100);
+          ty = rand(100, WORLD_H - 100);
+        }
+        // Chase prey if close enough
+        if (prey && preyD < 350) { tx = prey.x; ty = prey.y; }
+        // Evade threats
+        if (threat && threatD < 300) {
+          const angle = Math.atan2(bot.y - threat.y, bot.x - threat.x);
+          tx = bot.x + Math.cos(angle) * 400;
+          ty = bot.y + Math.sin(angle) * 400;
+        }
+      } else { // hard
+        // Efficient food seeking
+        if (nearFood && nearFoodD < 600) { tx = nearFood.x; ty = nearFood.y; }
+        else if (Math.random() < 0.008 || dist(bot.x, bot.y, tx, ty) < 60) {
+          tx = rand(100, WORLD_W - 100);
+          ty = rand(100, WORLD_H - 100);
+        }
+        // Aggressively chase prey
+        if (prey && preyD < 500) { tx = prey.x; ty = prey.y; }
+        // Perfect evasion
+        if (threat && threatD < 400) {
+          const angle = Math.atan2(bot.y - threat.y, bot.x - threat.x);
+          tx = bot.x + Math.cos(angle) * 500;
+          ty = bot.y + Math.sin(angle) * 500;
+        }
+      }
+
+      tx = clamp(tx, 10, WORLD_W - 10);
+      ty = clamp(ty, 10, WORLD_H - 10);
+      bot.targetX = tx;
+      bot.targetY = ty;
+
+      // Move toward target
+      const angle = Math.atan2(ty - bot.y, tx - bot.x);
+      const speed = getSpeed(bot) * (ai === 'hard' ? 1.2 : ai === 'medium' ? 1.0 : 0.85);
+      bot.x += Math.cos(angle) * speed;
+      bot.y += Math.sin(angle) * speed;
+      bot.x = clamp(bot.x, bot.radius, WORLD_W - bot.radius);
+      bot.y = clamp(bot.y, bot.radius, WORLD_H - bot.radius);
+    }
+
+    // ============ GAME INIT ============
+    function initBots(diffKey) {
+      bots = [];
+      const cfg = DIFFICULTIES[diffKey];
+      for (let i = 0; i < cfg.bots; i++) {
+        const r = rand(cfg.minSize, cfg.maxSize);
+        const bot = createEntity(
+          rand(100, WORLD_W - 100),
+          rand(100, WORLD_H - 100),
+          r, null, null
+        );
+        bot.targetX = rand(100, WORLD_W - 100);
+        bot.targetY = rand(100, WORLD_H - 100);
+        bots.push(bot);
+      }
+    }
+
+    function startGame(diffKey) {
+      difficulty = diffKey;
+      document.getElementById('menu').style.display = 'none';
+      document.getElementById('gameOver').style.display = 'none';
+      document.getElementById('difficultyLabel').textContent = DIFFICULTIES[diffKey].label;
+      document.getElementById('difficultyLabel').style.display = 'block';
+
+      player = createEntity(WORLD_W / 2, WORLD_H / 2, 30, '#3498db', 'Você');
+      camera.x = player.x - W / 2;
+      camera.y = player.y - H / 2;
+
+      initFood();
+      initBots(diffKey);
+      gameRunning = true;
+
+      if (animId) cancelAnimationFrame(animId);
+      loop();
+    }
+
+    function gameOver() {
+      gameRunning = false;
+      document.getElementById('gameOver').style.display = 'flex';
+      document.getElementById('finalScore').textContent = Math.floor(player.mass);
+    }
+
+    function showMenu() {
+      gameRunning = false;
+      if (animId) { cancelAnimationFrame(animId); animId = null; }
+      document.getElementById('menu').style.display = 'flex';
+      document.getElementById('gameOver').style.display = 'none';
+      document.getElementById('difficultyLabel').style.display = 'none';
+    }
+
+    // ============ GAME LOOP ============
+    function loop() {
+      if (!gameRunning) return;
+      animId = requestAnimationFrame(loop);
+
+      update();
+      render();
+    }
+
+    function update() {
+      if (!player || !player.alive) return;
+
+      // ---- Player movement ----
+      const worldMX = mouse.x + camera.x;
+      const worldMY = mouse.y + camera.y;
+      const angle = Math.atan2(worldMY - player.y, worldMX - player.x);
+      const speed = getSpeed(player);
+      if (dist(player.x, player.y, worldMX, worldMY) > 5) {
+        player.x += Math.cos(angle) * speed;
+        player.y += Math.sin(angle) * speed;
+      }
+      player.x = clamp(player.x, player.radius, WORLD_W - player.radius);
+      player.y = clamp(player.y, player.radius, WORLD_H - player.radius);
+
+      // Update mass
+      player.mass = Math.PI * player.radius * player.radius;
+
+      // ---- Camera ----
+      const targetCX = player.x - W / 2;
+      const targetCY = player.y - H / 2;
+      camera.x += (targetCX - camera.x) * 0.08;
+      camera.y += (targetCY - camera.y) * 0.08;
+      camera.x = clamp(camera.x, 0, WORLD_W - W);
+      camera.y = clamp(camera.y, 0, WORLD_H - H);
+
+      // ---- Bot updates ----
+      for (const bot of bots) {
+        if (!bot.alive) continue;
+        updateBotAI(bot, difficulty);
+        bot.mass = Math.PI * bot.radius * bot.radius;
+      }
+
+      // ---- Player eats food ----
+      for (let i = foods.length - 1; i >= 0; i--) {
+        const f = foods[i];
+        if (dist(player.x, player.y, f.x, f.y) < player.radius) {
+          player.radius += f.radius * 0.12;
+          foods[i] = spawnFood();
+        }
+      }
+
+      // ---- Bots eat food ----
+      for (const bot of bots) {
+        if (!bot.alive) continue;
+        for (let i = foods.length - 1; i >= 0; i--) {
+          const f = foods[i];
+          if (dist(bot.x, bot.y, f.x, f.y) < bot.radius) {
+            bot.radius += f.radius * 0.1;
+            foods[i] = spawnFood();
+          }
+        }
+      }
+
+      // ---- Entity collisions (player vs bots, bot vs bot) ----
+      const allEntities = [player, ...bots].filter(e => e && e.alive);
+      for (let i = 0; i < allEntities.length; i++) {
+        for (let j = i + 1; j < allEntities.length; j++) {
+          const a = allEntities[i];
+          const b = allEntities[j];
+          const d = dist(a.x, a.y, b.x, b.y);
+          if (d < Math.max(a.radius, b.radius) * 0.5) continue; // rough check
+          const minDist = a.radius + b.radius;
+          if (d >= minDist || d === 0) continue;
+
+          // Determine who eats whom
+          if (a.radius > b.radius * 1.15) {
+            a.radius += b.radius * 0.3;
+            b.alive = false;
+            if (b === player) { gameOver(); return; }
+          } else if (b.radius > a.radius * 1.15) {
+            b.radius += a.radius * 0.3;
+            a.alive = false;
+            if (a === player) { gameOver(); return; }
+          }
+        }
+      }
+
+      // Remove dead bots and respawn them
+      for (let i = bots.length - 1; i >= 0; i--) {
+        if (!bots[i].alive) {
+          const cfg = DIFFICULTIES[difficulty];
+          const r = rand(cfg.minSize, cfg.maxSize);
+          const bot = createEntity(
+            rand(100, WORLD_W - 100),
+            rand(100, WORLD_H - 100),
+            r, null, null
+          );
+          bot.targetX = rand(100, WORLD_W - 100);
+          bot.targetY = rand(100, WORLD_H - 100);
+          bots[i] = bot;
+        }
+      }
+
+      // ---- HUD ----
+      document.getElementById('score').textContent = Math.floor(player.mass);
+
+      // ---- Leaderboard ----
+      const sorted = [...allEntities.filter(e => e.alive)]
+        .sort((a, b) => b.radius - a.radius)
+        .slice(0, 10);
+      const list = document.getElementById('leaderboardList');
+      list.innerHTML = '';
+      for (const e of sorted) {
+        const li = document.createElement('li');
+        li.innerHTML = `<span class="lb-color" style="background:${e.color}"></span>
+          <span class="lb-name">${e.name}${e === player ? ' (você)' : ''}</span>
+          <span class="lb-score">${Math.floor(e.mass)}</span>`;
+        list.appendChild(li);
+      }
+    }
+
+    // ============ RENDER ============
+    function render() {
+      // Background
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, W, H);
+
+      // Grid
+      ctx.strokeStyle = 'rgba(255,255,255,.04)';
+      ctx.lineWidth = 1;
+      const gridSize = 50;
+      const startX = Math.floor(camera.x / gridSize) * gridSize;
+      const startY = Math.floor(camera.y / gridSize) * gridSize;
+      for (let x = startX; x < camera.x + W + gridSize; x += gridSize) {
+        const sx = x - camera.x;
+        ctx.beginPath();
+        ctx.moveTo(sx, 0);
+        ctx.lineTo(sx, H);
+        ctx.stroke();
+      }
+      for (let y = startY; y < camera.y + H + gridSize; y += gridSize) {
+        const sy = y - camera.y;
+        ctx.beginPath();
+        ctx.moveTo(0, sy);
+        ctx.lineTo(W, sy);
+        ctx.stroke();
+      }
+
+      // World border
+      ctx.strokeStyle = 'rgba(255,50,50,.3)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(-camera.x, -camera.y, WORLD_W, WORLD_H);
+
+      // Food
+      for (const f of foods) {
+        const sx = f.x - camera.x;
+        const sy = f.y - camera.y;
+        if (sx < -10 || sx > W + 10 || sy < -10 || sy > H + 10) continue;
+        ctx.beginPath();
+        ctx.arc(sx, sy, f.radius, 0, Math.PI * 2);
+        ctx.fillStyle = f.color;
+        ctx.fill();
+      }
+
+      // Entities (sort by size - draw smallest first)
+      const allForRender = [player, ...bots].filter(e => e && e.alive)
+        .sort((a, b) => a.radius - b.radius);
+
+      for (const e of allForRender) {
+        const sx = e.x - camera.x;
+        const sy = e.y - camera.y;
+        if (sx < -100 || sx > W + 100 || sy < -100 || sy > H + 100) continue;
+
+        const r = e.radius;
+
+        // Outer glow
+        const grad = ctx.createRadialGradient(sx, sy, r * 0.5, sx, sy, r * 1.3);
+        grad.addColorStop(0, e.color + '60');
+        grad.addColorStop(1, e.color + '00');
+        ctx.beginPath();
+        ctx.arc(sx, sy, r * 1.3, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // Main body
+        const bodyGrad = ctx.createRadialGradient(sx - r * 0.3, sy - r * 0.3, r * 0.1, sx, sy, r);
+        bodyGrad.addColorStop(0, lightenColor(e.color, 40));
+        bodyGrad.addColorStop(1, e.color);
+        ctx.beginPath();
+        ctx.arc(sx, sy, r, 0, Math.PI * 2);
+        ctx.fillStyle = bodyGrad;
+        ctx.fill();
+
+        // Border
+        ctx.strokeStyle = 'rgba(255,255,255,.15)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Inner highlight
+        ctx.beginPath();
+        ctx.arc(sx - r * 0.25, sy - r * 0.25, r * 0.35, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,.08)';
+        ctx.fill();
+
+        // Name
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${Math.max(12, r * 0.5)}px 'Segoe UI', Arial, sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowColor = 'rgba(0,0,0,.8)';
+        ctx.shadowBlur = 4;
+        ctx.fillText(e.name, sx, sy - 4);
+        ctx.shadowBlur = 0;
+
+        // Mass indicator
+        ctx.fillStyle = 'rgba(255,255,255,.5)';
+        ctx.font = `${Math.max(10, r * 0.28)}px 'Segoe UI', Arial, sans-serif`;
+        ctx.fillText(Math.floor(e.mass), sx, sy + r * 0.5 + 8);
+      }
+    }
+
+    function lightenColor(hex, percent) {
+      const num = parseInt(hex.replace('#', ''), 16);
+      const amt = Math.round(2.55 * percent);
+      const R = Math.min(255, (num >> 16) + amt);
+      const G = Math.min(255, ((num >> 8) & 0x00FF) + amt);
+      const B = Math.min(255, (num & 0x0000FF) + amt);
+      return `#${(1 << 24 | R << 16 | G << 8 | B).toString(16).slice(1)}`;
+    }
+
+    // ============ MOUSE ============
+    canvas.addEventListener('mousemove', e => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+    });
+
+    // ============ START ============
+    showMenu();
+  </script>
+</body>
+</html>
