@@ -91,9 +91,9 @@ const BN=['Player','Noob','Pro','XD','Bot','Legend','Troll','King','Boss','Slaye
   'Sniper','Wolf','Hawk','Fox','Bolt','Fury','Cyber','Echo'];
 
 const D={
-  easy:  {n:6, mn:7, mx:16, sm:0.85, ai:'easy',   lb:'FÁCIL'},
-  medium:{n:10,mn:13,mx:26, sm:1.0,  ai:'medium', lb:'MÉDIO'},
-  hard:  {n:16,mn:20,mx:40, sm:1.15, ai:'hard',   lb:'DIFÍCIL'}
+  easy:  {n:30, mn:6, mx:14, sm:0.8,  ai:'easy',   lb:'FÁCIL'},
+  medium:{n:30, mn:10, mx:22, sm:1.0,  ai:'medium', lb:'MÉDIO'},
+  hard:  {n:30, mn:16, mx:35, sm:1.15, ai:'hard',   lb:'DIFÍCIL'}
 };
 
 const rand=(a,b)=>a+Math.random()*(b-a);
@@ -308,22 +308,23 @@ function update(){
     if(c.burst>0){
       c.burst--;
       c.vx*=0.97;c.vy*=0.97;
-      // Zero mouse influence during burst — cell flies purely on its momentum
+      // No speed clamp during burst
     }else{
       if(d>3){c.vx+=(dx/d)*ms*0.10;c.vy+=(dy/d)*ms*0.10;}
       c.vx*=0.90;c.vy*=0.90;
+      const s=Math.hypot(c.vx,c.vy);
+      if(s>ms){c.vx=(c.vx/s)*ms;c.vy=(c.vy/s)*ms;}
     }
-    const s=Math.hypot(c.vx,c.vy);
-    if(s>ms){c.vx=(c.vx/s)*ms;c.vy=(c.vy/s)*ms;}
     c.x+=c.vx;c.y+=c.vy;
     c.x=clamp(c.x,c.radius,WW-c.radius);c.y=clamp(c.y,c.radius,WH-c.radius);
     c.mass=r2m(c.radius);
     if(!c.merge){c.mt--;if(c.mt<=0)c.merge=true;}
   }
 
-  // Repulsion between player cells
+  // Repulsion between player cells (skip during split burst)
   for(let i=0;i<pc.length;i++)for(let j=i+1;j<pc.length;j++){
     const a=pc[i],b=pc[j];if(!a.alive||!b.alive)continue;
+    if(a.burst>0||b.burst>0)continue;
     const d=dist(a.x,a.y,b.x,b.y),min=a.radius+b.radius;
     if(d<min&&d>0){
       const push=(min-d)*0.5,ang=Math.atan2(b.y-a.y,b.x-a.x);
@@ -343,10 +344,10 @@ function update(){
     if(!c.alive)continue;
     for(let i=foods.length-1;i>=0;i--){const f=foods[i];
       if(dist(c.x,c.y,f.x,f.y)<c.radius+f.radius){
-        c.radius+=f.radius*0.20;c.mass=r2m(c.radius);foods[i]=mf();}}
+        c.radius+=f.radius*0.06;c.mass=r2m(c.radius);foods[i]=mf();}}
     for(let i=stars.length-1;i>=0;i--){const s=stars[i];
       if(dist(c.x,c.y,s.x,s.y)<c.radius+s.radius){
-        c.radius+=s.radius*0.40;c.mass=r2m(c.radius);
+        c.radius+=s.radius*0.15;c.mass=r2m(c.radius);
         spawnP(s.x,s.y,'#ffd700',30);stars[i]=ms();}}
   }
 
@@ -354,9 +355,9 @@ function update(){
   for(const b of bots){
     if(!b.alive)continue;
     for(let i=foods.length-1;i>=0;i--){const f=foods[i];
-      if(dist(b.x,b.y,f.x,f.y)<b.radius+f.radius){b.radius+=f.radius*0.15;b.mass=r2m(b.radius);foods[i]=mf();}}
+      if(dist(b.x,b.y,f.x,f.y)<b.radius+f.radius){b.radius+=f.radius*0.04;b.mass=r2m(b.radius);foods[i]=mf();}}
     for(let i=stars.length-1;i>=0;i--){const s=stars[i];
-      if(dist(b.x,b.y,s.x,s.y)<b.radius+s.radius){b.radius+=s.radius*0.30;b.mass=r2m(b.radius);stars[i]=ms();}}
+      if(dist(b.x,b.y,s.x,s.y)<b.radius+s.radius){b.radius+=s.radius*0.12;b.mass=r2m(b.radius);stars[i]=ms();}}
   }
 
   // Ejected mass
