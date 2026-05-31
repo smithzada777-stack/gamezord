@@ -3,26 +3,41 @@
 > **Última atualização:** 31/05/2026 — 10:54 (horário local)
 
 ## 📋 Descrição
-Jogo em desenvolvimento. Detalhes a definir.
+Clone do Agar.io com bots single-player. Modos Fácil, Médio e Difícil.
 
 ## 🎯 Objetivo
-Criar um jogo completo e funcional.
+Comer comida e células menores para crescer, sem ser comido pelos bots maiores.
+
+## 🎮 Como Jogar
+- Mouse para movimentar sua célula
+- Coma as bolinhas coloridas (comida) para crescer
+- Coma bots menores que você
+- Fuja de bots maiores
+- **Fácil:** 8 bots lentos | **Médio:** 12 bots | **Difícil:** 18 bots agressivos
+
+## 🌐 Deploy
+- **Produção:** https://gamezord.vercel.app
+- **GitHub:** https://github.com/smithzada777-stack/gamezord
 
 ## 📁 Estrutura do Projeto
 ```
 game teste/
 ├── CONTEXTO.md
-└── ...
+├── index.html     (jogo completo HTML + CSS + JS)
+└── .gitignore
 ```
 
 ## 🧱 Pilha Tecnológica
-*A definir*
+- HTML5 Canvas
+- JavaScript puro (zero dependências)
+- Vercel (deploy)
 
-## ✅ Próximos Passos
-1. Definir gênero do jogo
-2. Escolher engine/framework
-3. Estruturar o projeto
-4. Começar o desenvolvimento
+## ✅ Status
+- [x] Criar jogo Agar.io com bots
+- [x] Modos Fácil, Médio e Difícil
+- [x] GitHub repo criado
+- [x] Deploy no Vercel
+- [ ] Melhorias futuras (se desejado)
 
 ---
 
