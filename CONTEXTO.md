@@ -1,19 +1,21 @@
 # 🎮 GameZord
 
-> **Última atualização:** 31/05/2026 — 10:54 (horário local)
+> **Última atualização:** 31/05/2026 — 11:30 (horário local)
 
 ## 📋 Descrição
-Clone do Agar.io com bots single-player. Modos Fácil, Médio e Difícil.
+Clone completo do Agar.io com bots, dividir células (split), ejetar massa, física suave e zoom dinâmico. Modos Fácil, Médio e Difícil.
 
 ## 🎯 Objetivo
-Comer comida e células menores para crescer, sem ser comido pelos bots maiores.
+Começar pequeno, comer comida e células menores para crescer, dividir para capturar presas, e evitar ser comido.
 
 ## 🎮 Como Jogar
-- Mouse para movimentar sua célula
-- Coma as bolinhas coloridas (comida) para crescer
-- Coma bots menores que você
-- Fuja de bots maiores
-- **Fácil:** 8 bots lentos | **Médio:** 12 bots | **Difícil:** 18 bots agressivos
+- **Mouse:** movimentar
+- **Espaço:** dividir célula (split) — atira metade na direção do mouse
+- **W:** ejetar massa (pequena bolinha que outros podem comer)
+- Comece pequeno (raio 15) e cresça comendo comida e bots menores
+- O zoom aumenta conforme você cresce
+- Células separadas se juntam após ~15 segundos
+- **Fácil:** 6 bots lentos | **Médio:** 10 bots | **Difícil:** 16 bots agressivos (alguns se dividem)
 
 ## 🌐 Deploy
 - **Produção:** https://gamezord.vercel.app
@@ -30,14 +32,18 @@ game teste/
 ## 🧱 Pilha Tecnológica
 - HTML5 Canvas
 - JavaScript puro (zero dependências)
-- Vercel (deploy)
+- Vercel (deploy estático)
 
-## ✅ Status
-- [x] Criar jogo Agar.io com bots
+## ✅ Funcionalidades
+- [x] Mecânica Agar.io completa (comer, crescer, fugir)
+- [x] Split (dividir célula com Espaço)
+- [x] Ejetar massa (com W)
+- [x] Zoom dinâmico baseado no tamanho
+- [x] Física suave com velocidade inercial
+- [x] Bots com IA (Easy/Medium/Hard)
+- [x] Leaderboard ao vivo
+- [x] Partículas visuais ao comer células
 - [x] Modos Fácil, Médio e Difícil
-- [x] GitHub repo criado
-- [x] Deploy no Vercel
-- [ ] Melhorias futuras (se desejado)
 
 ---
 
